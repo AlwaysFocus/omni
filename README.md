@@ -35,9 +35,9 @@ There are two ways to install Omni:
    git clone https://github.com/alwaysfocus/omni.git
     cd omni
     cargo build --release
-    sudo mv ./target/release/omni-cli /usr/local/bin/
+    sudo mv ./target/release/omni /usr/local/bin/
     ```
-   The binary omni-cli will now be available for use.
+   The binary omni will now be available for use.
 
 ## Usage
 Omni CLI supports several commands under each entity type. Here is a brief overview of each:
