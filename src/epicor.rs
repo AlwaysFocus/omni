@@ -30,8 +30,6 @@ pub struct CompleteTaskResponse {
 }
 
 pub async fn send_complete_task(case_num: u32, assign_next_to_name: &str) -> Result<()> {
-    // // Load .env variables
-    // dotenv::dotenv().ok();
 
     // Retrieve environment variables
     let api_key = env::var("EPICOR_API_KEY").map_err(|_| anyhow!("EPICOR_API_KEY must be set"))?;
@@ -59,6 +57,7 @@ pub async fn send_complete_task(case_num: u32, assign_next_to_name: &str) -> Res
     );
 
     // Construct the URL
+    // TODO: Make company dynamic
     let url = format!("{}/api/v2/efx/100/Omni/CompleteTask", base_url);
 
     // Send the request and get the response.
