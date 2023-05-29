@@ -47,7 +47,7 @@ Set up Omni by running the `setup` command. It accepts BitWarden Client ID, Clie
 
 Example:
 ```sh
-    omni-cli Setup -i [bw_client_id] -s [bw_client_secret] -p [bw_master_password] -u [epicor_base_url] -k [epicor_api_key] -n [epicor_username] -w [epicor_password]
+    omni setup -i [bw_client_id] -s [bw_client_secret] -p [bw_master_password] -u [epicor_base_url] -k [epicor_api_key] -n [epicor_username] -w [epicor_password]
 ```
 
 ### BitWarden
@@ -60,7 +60,7 @@ omni bitwarden list
 ```
 `Get`: Gets Bitwarden Vault item. Requires item_type and name.
 ```sh
-omni Bitwarden get -t [item_type] -n [name]
+omni bitwarden get -t [item_type] -n [name]
 ```
 
 
