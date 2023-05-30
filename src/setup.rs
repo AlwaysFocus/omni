@@ -95,38 +95,6 @@ fn download_and_extract(url: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
     Ok(())
 }
 
-// fn create_env_file(client_id: &str, client_secret: &str, master_password: &str) -> Result<(), Box<dyn std::error::Error>> {
-//     let os = env::consts::OS;
-//
-//     let env_file_path = match os {
-//         "windows" => {
-//             let mut path = env::current_dir()?;
-//             path.push(".env");
-//             path
-//         }
-//         "macos" => {
-//             let mut path = env::current_dir()?;
-//             path.push(".env");
-//             path
-//         }
-//         "linux" => {
-//             let mut path = env::current_dir()?;
-//             path.push(".env");
-//             path
-//         }
-//         _ => {
-//             return Err(format!("Unsupported operating system: {}", os).into());
-//         }
-//     };
-//
-//     let mut env_file = File::create(&env_file_path)?;
-//
-//     env_file.write_all(format!("BW_CLIENTID={}\n", client_id).as_bytes())?;
-//     env_file.write_all(format!("BW_CLIENTSECRET={}\n", client_secret).as_bytes())?;
-//     env_file.write_all(format!("MASTER_PASSWORD={}\n", master_password).as_bytes())?;
-//
-//     Ok(())
-// }
 
 fn create_env_file(
     client_id: Option<&str>,
@@ -257,16 +225,7 @@ pub(crate) async fn setup(
         _ => String::new(),
     };
 
-    // tokio::task::spawn_blocking(|| -> Result<(), Box<dyn Error + Send + Sync>>{
-    //     create_env_file(
-    //         client_id,
-    //         client_secret,
-    //         master_password,
-    //         epicor_base_url,
-    //         epicor_api_key,
-    //         Some(epicor_basic_auth.as_str()),
-    //     )
-    // }).await?.expect("TODO: panic message");
+    
     let client_id = client_id.unwrap().to_string();
     let client_secret = client_secret.unwrap().to_string();
     let master_password = master_password.unwrap().to_string();
@@ -274,15 +233,7 @@ pub(crate) async fn setup(
     let epicor_api_key = epicor_api_key.unwrap().to_string();
     let epicor_basic_auth = epicor_basic_auth;
 
-    // print out all the values
-    println!("client_id: {}", client_id);
-
-    println!("client_secret: {}", client_secret);
-    println!("master_password: {}", master_password);
-    println!("epicor_base_url: {}", epicor_base_url);
-    println!("epicor_api_key: {}", epicor_api_key);
-    println!("epicor_basic_auth: {}", epicor_basic_auth);
-
+    
     tokio::task::spawn_blocking(move || -> Result<(), Box<dyn Error + Send + Sync>> {
         create_env_file(
             Some(&client_id),

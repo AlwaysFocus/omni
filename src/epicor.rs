@@ -30,11 +30,15 @@ pub struct CompleteTaskResponse {
     no_sales_rep_match: bool,
 }
 
+<<<<<<< HEAD
 #[derive(Serialize)]
 pub struct CaseStatusInput {
     #[serde(rename = "CaseNum")]
     case_num: u32,
 }
+=======
+pub async fn send_complete_task(case_num: u32, assign_next_to_name: &str) -> Result<()> {
+>>>>>>> 996fb1a417eff992f403862e0e12155266bbab30
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CaseStatusResponse {
@@ -132,6 +136,7 @@ pub async fn send_complete_task(case_num: u32, assign_next_to_name: &str) -> Res
     );
 
     // Construct the URL
+    // TODO: Make company dynamic
     let url = format!("{}/api/v2/efx/100/Omni/CompleteTask", base_url);
 
     // Send the request and get the response.
