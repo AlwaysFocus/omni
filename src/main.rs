@@ -7,7 +7,7 @@ use crate::args::{
     BitwardenSubcommand, CaseSubcommand, EntityType, EpicorCommand, EpicorSubcommand,
 };
 use crate::bitwarden::{get_item, list_items};
-use crate::epicor::send_complete_task;
+use crate::epicor::{get_case_status, send_complete_task};
 use crate::setup::setup;
 use anyhow::{anyhow, Result};
 use args::OmniArgs;
@@ -42,6 +42,15 @@ async fn main() -> Result<()> {
                         Ok(_) => println!("Task Completed"),
                         Err(e) => println!("Error Completing Task: {}", e),
                     };
+                }
+                CaseSubcommand::GetStatus(case) => {
+                    get_case_status(case.case_number).await?;
+                }
+                CaseSubcommand::GetCommentSummary(case) => {
+                    println!("Get Comment Summary");
+                }
+                CaseSubcommand::AddComment(case) => {
+                    println!("Add Comment");
                 }
             },
         },

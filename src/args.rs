@@ -170,6 +170,12 @@ pub struct CaseCommand {
 pub enum CaseSubcommand {
     /// Completes the current task for a given Epicor case
     CompleteTask(CompleteTaskCommand),
+    /// Adds a comment to a given Epicor case
+    AddComment(AddCommentCommand),
+    /// Retrieves the current status of a given case
+    GetStatus(GetStatusCommand),
+    /// Gets a summary of the case comments
+    GetCommentSummary(GetCommentSummaryCommand),
 }
 
 #[derive(Debug, Args)]
@@ -183,4 +189,28 @@ pub struct CompleteTaskCommand {
     /// Optional comment to add to the case
     #[clap(short, long)]
     pub comment: Option<String>,
+}
+
+#[derive(Debug, Args)]
+pub struct AddCommentCommand {
+    /// Epicor case number
+    #[clap(short = 'n', long)]
+    pub case_number: u32,
+    /// Comment to add to the case
+    #[clap(short, long)]
+    pub comment: String,
+}
+
+#[derive(Debug, Args)]
+pub struct GetStatusCommand {
+    /// Epicor case number
+    #[clap(short = 'n', long)]
+    pub case_number: u32,
+}
+
+#[derive(Debug, Args)]
+pub struct GetCommentSummaryCommand {
+    /// Epicor case number
+    #[clap(short = 'n', long)]
+    pub case_number: u32,
 }

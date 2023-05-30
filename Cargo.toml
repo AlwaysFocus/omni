@@ -1,5 +1,6 @@
 [package]
 name = "omni"
+author = "Eli Whalen <eliwhalen92@gmail.com>"
 version = "0.1.0"
 edition = "2021"
 
@@ -20,3 +21,5 @@ tokio = { version = "1", features = ["full"] }
 serde = {cersion="1.0.163", features=["derive"]}
 serde_derive = "1.0.163"
 serde_json = "1.0.96"
+chrono = "0.4.25"
+colored = "2.0.0"
