@@ -176,6 +176,8 @@ pub enum CaseSubcommand {
     GetStatus(GetStatusCommand),
     /// Gets a summary of the case comments
     GetCommentSummary(GetCommentSummaryCommand),
+    /// Updates the Quote for a given case
+    UpdateQuote(UpdateQuoteCommand),
 }
 
 #[derive(Debug, Args)]
@@ -213,4 +215,14 @@ pub struct GetCommentSummaryCommand {
     /// Epicor case number
     #[clap(short = 'n', long)]
     pub case_number: u32,
+}
+
+#[derive(Debug, Args)]
+pub struct UpdateQuoteCommand {
+    /// Epicor case number
+    #[clap(short = 'c', long)]
+    pub case_number: u32,
+    /// New Quantity for the Case Part (used to update quote)
+    #[clap(short = 'n', long)]
+    pub new_quantity: f32,
 }

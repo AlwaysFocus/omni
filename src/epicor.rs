@@ -7,6 +7,23 @@ use std::env;
 use std::error::Error;
 
 #[derive(Serialize)]
+pub struct UpdateQuoteInput {
+    #[serde(rename = "CaseNum")]
+    case_num: u32,
+    #[serde(rename = "Qty")]
+    new_quantity: f32,
+}
+
+#[derive(Deserialize)]
+pub struct UpdateQuoteResponse {
+    #[serde(rename = "Error")]
+    error: bool,
+    #[serde(rename = "Message")]
+    message: String,
+}
+
+
+#[derive(Serialize)]
 pub struct CompleteTaskInput {
     #[serde(rename = "CaseNum")]
     case_num: u32,
@@ -350,4 +367,66 @@ fn print_case_status(case_num: &u32, case_status_response: CaseStatusResponse) {
         "Billed Percent:".red().bold().underline(),
         case_status_response.billed_percent
     );
+}
+
+pub async fn update_case_quote(case_num: u32, new_quantity: f32) -> Result<()> {
+    // Retrieve environment variables
+    let api_key = env::var("EPICOR_API_KEY").map_err(|_| anyhow!("EPICOR_API_KEY must be set"))?;
+    let basic_auth =
+        env::var("EPICOR_BASIC_AUTH").map_err(|_| anyhow!("EPICOR_BASIC_AUTH must be set"))?;
+    let base_url =
+        env::var("EPICOR_BASE_URL").map_err(|_| anyhow!("EPICOR_BASE_URL must be set"))?;
+
+    // Prepare the HTTP client.
+    let client = Client::new();
+
+    // Prepare the JSON payload.
+    let update_quote_input = UpdateQuoteInput { case_num, new_quantity };
+
+    // Prepare the headers.
+    let mut headers = HeaderMap::new();
+    headers.insert("X-API-Key", HeaderValue::from_str(&api_key)?);
+    headers.insert(AUTHORIZATION, HeaderValue::from_str(&basic_auth)?);
+    headers.insert(
+        CONTENT_TYPE,
+        HeaderValue::from_static("application/json; charset=utf-8"),
+    );
+
+    // Construct the URL
+    let url = format!("{}/api/v2/efx/100/Omni/UpdateCaseQuote", base_url);
+
+    // Send the request and get the response.
+    let resp: Response = client
+        .post(&url)
+        .headers(headers)
+        .json(&update_quote_input)
+        .send()
+        .await?;
+
+    // Check to see if the response was successful.
+    if !resp.status().is_success() {
+        // if the error is 404, this means that the function library is likely not published
+        if resp.status().as_u16() == 404 {
+            return Err(anyhow!(
+                "Error: {}",
+                "The Omni function library is not published in Epicor. Please publish the function library and try again."
+            ));
+        }
+        return Err(anyhow!("Error: {}", resp.status()));
+    }
+
+    // Deserialize the response.
+    let update_quote_response: UpdateQuoteResponse = resp.json().await?;
+
+    // Check for errors.
+    if update_quote_response.error {
+        return Err(anyhow!("Error: {}", update_quote_response.message));
+    }
+
+    println!(
+        "{}",
+        "Quote Updated and Attached to Case".bright_green().bold(),
+    );
+
+    Ok(())
 }
