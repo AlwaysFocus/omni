@@ -109,6 +109,11 @@ pub fn list_items() -> Result<()> {
         .expect("Failed to execute list command for bitwarden vault");
 
     if !list_output.status.success() {
+        // Lock vault
+        lock_vault()?;
+
+        // Logout of vault
+        logout()?;
         return Err(anyhow!("Failed to list vault items"));
     }
 
@@ -138,6 +143,11 @@ pub fn get_item(item_type: &VaultItemType, item_name: &str) -> Result<()> {
         .expect("Failed to execute get command for bitwarden vault");
 
     if !get_output.status.success() {
+        // Lock vault
+        lock_vault()?;
+
+        // Logout of vault
+        logout()?;
         return Err(anyhow!("Failed to get vault item"));
     }
 

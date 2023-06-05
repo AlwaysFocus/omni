@@ -6,12 +6,67 @@ use serde::{Deserialize, Serialize};
 use std::env;
 use std::error::Error;
 
+pub struct TimeEntry {
+    employee_id: u32,
+    labor_type: LaborType,
+    project_id: Option<String>,
+    wbs_phase_id: Option<String>,
+    operation: Option<u32>,
+    expense_code: Option<ExpenseCode>,
+}
+
+enum ExpenseCode {
+    DirectLabor = 1,
+    IndirectLabor,
+}
+
+enum LaborType {
+    Indirect,
+    Project,
+    Production,
+    Service,
+    Setup,
+}
+
+impl LaborType {
+    fn as_str(&self) -> &str {
+        match self {
+            LaborType::Indirect => "Indirect",
+            LaborType::Project => "Project",
+            LaborType::Production => "Production",
+            LaborType::Service => "Service",
+            LaborType::Setup => "Setup",
+        }
+    }
+}
+
+pub enum RequestBodyType {
+    UpdateQuoteBody(UpdateQuoteInput),
+    CompleteTaskBody(CompleteTaskInput),
+    CaseStatusBody(CaseStatusInput),
+}
+
+pub enum ResponseBodyType {
+    UpdateQuoteBody(UpdateQuoteResponse),
+    CompleteTaskBody(CompleteTaskResponse),
+    CaseStatusBody(CaseStatusResponse),
+}
+
 #[derive(Serialize)]
 pub struct UpdateQuoteInput {
     #[serde(rename = "CaseNum")]
     case_num: u32,
     #[serde(rename = "Qty")]
     new_quantity: f32,
+}
+
+impl UpdateQuoteInput {
+    pub fn new(case_num: u32, new_quantity: f32) -> Self {
+        Self {
+            case_num,
+            new_quantity,
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -22,13 +77,21 @@ pub struct UpdateQuoteResponse {
     message: String,
 }
 
-
 #[derive(Serialize)]
 pub struct CompleteTaskInput {
     #[serde(rename = "CaseNum")]
     case_num: u32,
     #[serde(rename = "AssignNextToName")]
     assign_next_to_name: String,
+}
+
+impl CompleteTaskInput {
+    pub fn new(case_num: u32, assign_next_to_name: &str) -> Self {
+        Self {
+            case_num,
+            assign_next_to_name: assign_next_to_name.to_string(),
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -47,13 +110,17 @@ pub struct CompleteTaskResponse {
     no_sales_rep_match: bool,
 }
 
-
 #[derive(Serialize)]
 pub struct CaseStatusInput {
     #[serde(rename = "CaseNum")]
     case_num: u32,
 }
 
+impl CaseStatusInput {
+    pub fn new(case_num: u32) -> Self {
+        Self { case_num }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct CaseStatusResponse {
@@ -381,7 +448,10 @@ pub async fn update_case_quote(case_num: u32, new_quantity: f32) -> Result<()> {
     let client = Client::new();
 
     // Prepare the JSON payload.
-    let update_quote_input = UpdateQuoteInput { case_num, new_quantity };
+    let update_quote_input = UpdateQuoteInput {
+        case_num,
+        new_quantity,
+    };
 
     // Prepare the headers.
     let mut headers = HeaderMap::new();
@@ -427,6 +497,78 @@ pub async fn update_case_quote(case_num: u32, new_quantity: f32) -> Result<()> {
         "{}",
         "Quote Updated and Attached to Case".bright_green().bold(),
     );
+
+    Ok(())
+}
+
+pub async fn send_request<R: Serialize, S: for<'de> Deserialize<'de>>(
+    req_body: Option<RequestBodyType>,
+    api_endpoint: &str,
+    _res_body: ResponseBodyType,
+) -> Result<(), Box<dyn Error>> {
+    // Retrieve environment variables
+    let api_key = env::var("EPICOR_API_KEY")?;
+    let basic_auth = env::var("EPICOR_BASIC_AUTH")?;
+    let base_url = env::var("EPICOR_BASE_URL")?;
+
+    // Prepare the HTTP client.
+    let client = reqwest::Client::new();
+
+    // Prepare the JSON payload.
+    let body = match req_body {
+        Some(RequestBodyType::CompleteTaskBody(body)) => body,
+        // Handle other types...
+        _ => return Err("Unsupported request body type".into()),
+    };
+
+    // Prepare the headers.
+    let mut headers = reqwest::header::HeaderMap::new();
+    headers.insert(
+        "X-API-Key",
+        reqwest::header::HeaderValue::from_str(&api_key)?,
+    );
+    headers.insert(
+        reqwest::header::AUTHORIZATION,
+        reqwest::header::HeaderValue::from_str(&basic_auth)?,
+    );
+    headers.insert(
+        reqwest::header::CONTENT_TYPE,
+        reqwest::header::HeaderValue::from_static("application/json; charset=utf-8"),
+    );
+
+    // Construct the URL
+    let url = format!("{}/api/v2/{}", base_url, api_endpoint);
+
+    // Send the request and get the response.
+    let resp = client
+        .post(&url)
+        .headers(headers)
+        .json(&body)
+        .send()
+        .await?;
+
+    // Check to see if the response was successful.
+    if !resp.status().is_success() {
+        // if the error is 404, this means that the function library is likely not published
+        if resp.status().as_u16() == 404 {
+            return Err("The Omni function library is not published in Epicor. Please publish the function library and try again.".into());
+        }
+        return Err(format!("Error: {}", resp.status()).into());
+    }
+
+    // Deserialize the response.
+    match _res_body {
+        ResponseBodyType::CompleteTaskBody(..) => {
+            let complete_task_response: CompleteTaskResponse = resp.json().await?;
+
+            // Check for errors.
+            if complete_task_response.error {
+                return Err(format!("Error: {}", complete_task_response.message).into());
+            }
+        }
+        // Handle other response types...
+        _ => return Err("Unsupported response body type".into()),
+    }
 
     Ok(())
 }

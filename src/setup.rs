@@ -95,7 +95,6 @@ fn download_and_extract(url: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
     Ok(())
 }
 
-
 fn create_env_file(
     client_id: Option<&str>,
     client_secret: Option<&str>,
@@ -225,7 +224,6 @@ pub(crate) async fn setup(
         _ => String::new(),
     };
 
-    
     let client_id = client_id.unwrap().to_string();
     let client_secret = client_secret.unwrap().to_string();
     let master_password = master_password.unwrap().to_string();
@@ -233,7 +231,6 @@ pub(crate) async fn setup(
     let epicor_api_key = epicor_api_key.unwrap().to_string();
     let epicor_basic_auth = epicor_basic_auth;
 
-    
     tokio::task::spawn_blocking(move || -> Result<(), Box<dyn Error + Send + Sync>> {
         create_env_file(
             Some(&client_id),
