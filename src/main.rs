@@ -7,7 +7,7 @@ use crate::args::{
     BitwardenSubcommand, CaseSubcommand, EntityType, EpicorCommand, EpicorSubcommand,
 };
 use crate::bitwarden::{get_item, list_items};
-use crate::epicor::{get_case_status, send_complete_task, update_case_quote};
+use crate::epicor::{add_case_comment, get_case_status, send_complete_task, update_case_quote};
 use crate::setup::setup;
 use anyhow::{anyhow, Result};
 use args::OmniArgs;
@@ -50,7 +50,7 @@ async fn main() -> Result<()> {
                     println!("Get Comment Summary");
                 }
                 CaseSubcommand::AddComment(case) => {
-                    println!("Add Comment");
+                    add_case_comment(case.case_number, case.comment.as_str()).await?;
                 }
                 CaseSubcommand::UpdateQuote(case) => {
                     update_case_quote(case.case_number, case.new_quantity).await?;

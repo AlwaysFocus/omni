@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Result, Ok};
 use colored::Colorize;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION, CONTENT_TYPE};
 use reqwest::{Client, Response};
@@ -44,15 +44,44 @@ pub enum RequestBodyType {
     UpdateQuoteBody(UpdateQuoteInput),
     CompleteTaskBody(CompleteTaskInput),
     CaseStatusBody(CaseStatusInput),
+    AddCaseCommentBody(AddCaseCommentInput),
 }
 
-pub enum ResponseBodyType {
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum ApiResponse {
     UpdateQuoteBody(UpdateQuoteResponse),
     CompleteTaskBody(CompleteTaskResponse),
     CaseStatusBody(CaseStatusResponse),
+    AddCaseCommentBody(AddCaseCommentResponse),
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
+pub struct AddCaseCommentInput {
+    #[serde(rename = "CaseNum")]
+    case_num: u32,
+    #[serde(rename = "Comment")]
+    comment: String,
+}
+
+impl AddCaseCommentInput {
+    pub fn new(case_num: u32, comment: &str) -> Self {
+        Self {
+            case_num,
+            comment: comment.to_string(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct AddCaseCommentResponse {
+    #[serde(rename = "Error")]
+    error: bool,
+    #[serde(rename = "Message")]
+    message: Option<String>,
+}
+
+#[derive(Serialize, Debug)]
 pub struct UpdateQuoteInput {
     #[serde(rename = "CaseNum")]
     case_num: u32,
@@ -69,7 +98,7 @@ impl UpdateQuoteInput {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct UpdateQuoteResponse {
     #[serde(rename = "Error")]
     error: bool,
@@ -77,7 +106,7 @@ pub struct UpdateQuoteResponse {
     message: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct CompleteTaskInput {
     #[serde(rename = "CaseNum")]
     case_num: u32,
@@ -94,7 +123,7 @@ impl CompleteTaskInput {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CompleteTaskResponse {
     #[serde(rename = "Error")]
     error: bool,
@@ -110,7 +139,7 @@ pub struct CompleteTaskResponse {
     no_sales_rep_match: bool,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct CaseStatusInput {
     #[serde(rename = "CaseNum")]
     case_num: u32,
@@ -501,24 +530,52 @@ pub async fn update_case_quote(case_num: u32, new_quantity: f32) -> Result<()> {
     Ok(())
 }
 
-pub async fn send_request<R: Serialize, S: for<'de> Deserialize<'de>>(
+pub async fn add_case_comment(case_num: u32, comment: &str) -> Result<()> {
+
+    let add_comment_input = AddCaseCommentInput {
+        case_num,
+        comment: comment.to_string()
+    };
+
+    let _result = send_request::<AddCaseCommentInput, AddCaseCommentResponse>(Some(RequestBodyType::AddCaseCommentBody(add_comment_input)), "efx/100/Omni/AddCaseComment").await?;
+
+    println!(
+        "{}",
+        "Comment Added to Case".bright_green().bold(),
+    );
+
+    Ok(())
+}
+
+async fn send_request<R: Serialize, S: for<'de> Deserialize<'de>>(
     req_body: Option<RequestBodyType>,
     api_endpoint: &str,
-    _res_body: ResponseBodyType,
-) -> Result<(), Box<dyn Error>> {
+) -> Result<()> {
     // Retrieve environment variables
     let api_key = env::var("EPICOR_API_KEY")?;
     let basic_auth = env::var("EPICOR_BASIC_AUTH")?;
     let base_url = env::var("EPICOR_BASE_URL")?;
 
     // Prepare the HTTP client.
-    let client = reqwest::Client::new();
+    let client = Client::new();
 
     // Prepare the JSON payload.
     let body = match req_body {
-        Some(RequestBodyType::CompleteTaskBody(body)) => body,
+        Some(RequestBodyType::UpdateQuoteBody(update_quote_input)) => {
+            serde_json::to_value(update_quote_input)?
+        }
+        Some(RequestBodyType::AddCaseCommentBody(add_comment_input)) => {
+            serde_json::to_value(add_comment_input)?
+
+        }
+        Some(RequestBodyType::CaseStatusBody(case_status_input)) => {
+            serde_json::to_value(case_status_input)?
+        }
+        Some(RequestBodyType::CompleteTaskBody(update_case_quote_input)) => {
+            serde_json::to_value(update_case_quote_input)?
+        }
         // Handle other types...
-        _ => return Err("Unsupported request body type".into()),
+        _ => return Err(anyhow!("Unsupported request body type")),
     };
 
     // Prepare the headers.
@@ -551,24 +608,41 @@ pub async fn send_request<R: Serialize, S: for<'de> Deserialize<'de>>(
     if !resp.status().is_success() {
         // if the error is 404, this means that the function library is likely not published
         if resp.status().as_u16() == 404 {
-            return Err("The Omni function library is not published in Epicor. Please publish the function library and try again.".into());
+            return Err(anyhow!("The Omni function library is not published in Epicor. Please publish the function library and try again."));
         }
-        return Err(format!("Error: {}", resp.status()).into());
+        return Err(anyhow!(format!("Error: {}", resp.status())));
     }
 
-    // Deserialize the response.
-    match _res_body {
-        ResponseBodyType::CompleteTaskBody(..) => {
-            let complete_task_response: CompleteTaskResponse = resp.json().await?;
+    let api_response = serde_json::from_str::<ApiResponse>(&resp.text().await?)?;
 
+    match api_response {
+        ApiResponse::UpdateQuoteBody(update_quote_response) => {
             // Check for errors.
-            if complete_task_response.error {
-                return Err(format!("Error: {}", complete_task_response.message).into());
+            if update_quote_response.error {
+                return Err(anyhow!(format!("Error: {}", update_quote_response.message)));
             }
         }
-        // Handle other response types...
-        _ => return Err("Unsupported response body type".into()),
+        ApiResponse::AddCaseCommentBody(add_comment_response) => {
+            // Check for errors. Note that response.message can be null and is optional
+            if add_comment_response.error {
+                return Err(anyhow!(format!("Error: {}", add_comment_response.message.unwrap_or("".to_string()))));
+            }
+        }
+        ApiResponse::CaseStatusBody(case_status_response) => {
+            // Check for errors.
+            if case_status_response.error {
+                return Err(anyhow!(format!("Error: {}", case_status_response.message)));
+            }
+        }
+        ApiResponse::CompleteTaskBody(complete_task_response) => {
+            // Check for errors.
+            if complete_task_response.error {
+                return Err(anyhow!(format!("Error: {}", complete_task_response.message)));
+            }
+        }
     }
+
+
 
     Ok(())
 }
