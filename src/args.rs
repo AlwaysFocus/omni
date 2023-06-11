@@ -44,6 +44,9 @@ pub struct SetupCommand {
     /// Epicor Password
     #[clap(short = 'w', long)]
     pub epicor_password: Option<String>,
+    /// OpenAI API Key
+    #[clap(short = 'o', long)]
+    pub openai_api_key: Option<String>,
 }
 
 #[derive(Debug, Args)]
@@ -178,6 +181,15 @@ pub enum CaseSubcommand {
     GetCommentSummary(GetCommentSummaryCommand),
     /// Updates the Quote for a given case
     UpdateQuote(UpdateQuoteCommand),
+    /// Retrieves the last comment on the case
+    GetLastComment(GetLastCommentCommand),
+}
+
+#[derive(Debug, Args)]
+pub struct GetLastCommentCommand {
+    /// Epicor case number
+    #[clap(short = 'n', long)]
+    pub case_number: u32,
 }
 
 #[derive(Debug, Args)]

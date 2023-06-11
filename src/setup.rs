@@ -102,6 +102,7 @@ fn create_env_file(
     epicor_base_url: Option<&str>,
     epicor_api_key: Option<&str>,
     epicor_basic_auth: Option<&str>,
+    openai_api_key: Option<&str>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let os = env::consts::OS;
 
@@ -140,6 +141,10 @@ fn create_env_file(
 
     if let Some(epicor_basic_auth) = epicor_basic_auth {
         env_file.write_all(format!("EPICOR_BASIC_AUTH='{}'\n", epicor_basic_auth).as_bytes())?;
+    }
+
+    if let Some(openai_api_key) = openai_api_key {
+        env_file.write_all(format!("OPENAI_API_KEY={}\n", openai_api_key).as_bytes())?;
     }
 
     // Ensure that all users have read/write permissions to the file
@@ -186,6 +191,7 @@ pub(crate) async fn setup(
     epicor_api_key: Option<&str>,
     epicor_username: Option<&str>,
     epicor_password: Option<&str>,
+    openai_api_key: Option<&str>,
 ) -> Result<(), Box<dyn Error>> {
     let os = env::consts::OS;
 
@@ -230,6 +236,7 @@ pub(crate) async fn setup(
     let epicor_base_url = epicor_base_url.unwrap().to_string();
     let epicor_api_key = epicor_api_key.unwrap().to_string();
     let epicor_basic_auth = epicor_basic_auth;
+    let openai_api_key = openai_api_key.unwrap().to_string();
 
     tokio::task::spawn_blocking(move || -> Result<(), Box<dyn Error + Send + Sync>> {
         create_env_file(
@@ -239,11 +246,12 @@ pub(crate) async fn setup(
             Some(&epicor_base_url),
             Some(&epicor_api_key),
             Some(&epicor_basic_auth),
+            Some(&openai_api_key),
         )
     })
     .await?
     .expect("TODO: panic message");
 
-    println!("Successfully downloaded and added 'bw' to the system path.");
+    println!("Omni setup complete!");
     Ok(())
 }

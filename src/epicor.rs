@@ -5,6 +5,7 @@ use reqwest::{Client, Response};
 use serde::{Deserialize, Serialize};
 use std::env;
 use std::error::Error;
+use std::fmt::Debug;
 
 pub struct TimeEntry {
     employee_id: u32,
@@ -45,6 +46,7 @@ pub enum RequestBodyType {
     CompleteTaskBody(CompleteTaskInput),
     CaseStatusBody(CaseStatusInput),
     AddCaseCommentBody(AddCaseCommentInput),
+    GetLastCommentBody(GetLastCommentInput),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -54,7 +56,25 @@ pub enum ApiResponse {
     CompleteTaskBody(CompleteTaskResponse),
     CaseStatusBody(CaseStatusResponse),
     AddCaseCommentBody(AddCaseCommentResponse),
+    GetLastCommentBody(GetLastCommentResponse),
 }
+
+#[derive(Serialize, Debug)]
+pub struct GetLastCommentInput {
+    #[serde(rename = "CaseNum")]
+    case_num: u32,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct GetLastCommentResponse {
+    #[serde(rename = "Error")]
+    error: bool,
+    #[serde(rename = "Message")]
+    message: Option<String>,
+    #[serde(rename = "Comment")]
+    comment: Option<String>,
+}
+
 
 #[derive(Serialize, Debug)]
 pub struct AddCaseCommentInput {
@@ -547,6 +567,72 @@ pub async fn add_case_comment(case_num: u32, comment: &str) -> Result<()> {
     Ok(())
 }
 
+pub async fn get_last_case_comment(case_num: u32) -> Result<()> {
+    // Retrieve environment variables
+    let api_key = env::var("EPICOR_API_KEY").map_err(|_| anyhow!("EPICOR_API_KEY must be set"))?;
+    let basic_auth =
+        env::var("EPICOR_BASIC_AUTH").map_err(|_| anyhow!("EPICOR_BASIC_AUTH must be set"))?;
+    let base_url =
+        env::var("EPICOR_BASE_URL").map_err(|_| anyhow!("EPICOR_BASE_URL must be set"))?;
+
+    // Prepare the HTTP client.
+    let client = Client::new();
+
+    // Prepare the JSON payload.
+    let last_case_comment_input = GetLastCommentInput {
+        case_num
+    };
+
+    // Prepare the headers.
+    let mut headers = HeaderMap::new();
+    headers.insert("X-API-Key", HeaderValue::from_str(&api_key)?);
+    headers.insert(AUTHORIZATION, HeaderValue::from_str(&basic_auth)?);
+    headers.insert(
+        CONTENT_TYPE,
+        HeaderValue::from_static("application/json; charset=utf-8"),
+    );
+
+    // Construct the URL
+    let url = format!("{}/api/v2/efx/100/Omni/GetLastComment", base_url);
+
+    // Send the request and get the response.
+    let resp: Response = client
+        .post(&url)
+        .headers(headers)
+        .json(&last_case_comment_input)
+        .send()
+        .await?;
+
+    // Check to see if the response was successful.
+    if !resp.status().is_success() {
+        // if the error is 404, this means that the function library is likely not published
+        if resp.status().as_u16() == 404 {
+            return Err(anyhow!(
+                "Error: {}",
+                "The Omni function library is not published in Epicor. Please publish the function library and try again."
+            ));
+        }
+        return Err(anyhow!("Error: {}", resp.status()));
+    }
+
+    // Deserialize the response.
+    let last_comment_response: GetLastCommentResponse = resp.json().await?;
+
+    // Check for errors.
+    if last_comment_response.error {
+        return Err(anyhow!("Error: {}", last_comment_response.message.unwrap_or("Unknown Error".to_string())));
+    }
+
+    println!("{}", "Last Comment".bright_green().bold().underline());
+
+    println!(
+        "{}",
+        last_comment_response.comment.unwrap_or("No comments".to_string()).bright_red(),
+    );
+
+    Ok(())
+}
+
 async fn send_request<R: Serialize, S: for<'de> Deserialize<'de>>(
     req_body: Option<RequestBodyType>,
     api_endpoint: &str,
@@ -573,6 +659,9 @@ async fn send_request<R: Serialize, S: for<'de> Deserialize<'de>>(
         }
         Some(RequestBodyType::CompleteTaskBody(update_case_quote_input)) => {
             serde_json::to_value(update_case_quote_input)?
+        }
+        Some(RequestBodyType::GetLastCommentBody(get_last_comment_input)) => {
+            serde_json::to_value(get_last_comment_input)?
         }
         // Handle other types...
         _ => return Err(anyhow!("Unsupported request body type")),
@@ -613,7 +702,11 @@ async fn send_request<R: Serialize, S: for<'de> Deserialize<'de>>(
         return Err(anyhow!(format!("Error: {}", resp.status())));
     }
 
+    // Deserialize the response. Make sure it is deserialized as the type passed in by the user.
     let api_response = serde_json::from_str::<ApiResponse>(&resp.text().await?)?;
+
+    // print response
+    println!("api_response: {:?}", api_response);
 
     match api_response {
         ApiResponse::UpdateQuoteBody(update_quote_response) => {
@@ -639,6 +732,18 @@ async fn send_request<R: Serialize, S: for<'de> Deserialize<'de>>(
             if complete_task_response.error {
                 return Err(anyhow!(format!("Error: {}", complete_task_response.message)));
             }
+        }
+        ApiResponse::GetLastCommentBody(get_last_comment_response) => {
+
+            println!("get_last_comment_response: {:?}", get_last_comment_response);
+
+            // Check for errors.
+            if get_last_comment_response.error {
+                return Err(anyhow!(format!("Error: {}", get_last_comment_response.message.unwrap_or("".to_string()))));
+            }
+
+            // print the comment
+            println!("Last Comment: {}", get_last_comment_response.comment.unwrap_or("".to_string()));
         }
     }
 

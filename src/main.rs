@@ -7,7 +7,7 @@ use crate::args::{
     BitwardenSubcommand, CaseSubcommand, EntityType, EpicorCommand, EpicorSubcommand,
 };
 use crate::bitwarden::{get_item, list_items};
-use crate::epicor::{add_case_comment, get_case_status, send_complete_task, update_case_quote};
+use crate::epicor::{add_case_comment, get_case_status, get_last_case_comment, send_complete_task, update_case_quote};
 use crate::setup::setup;
 use anyhow::{anyhow, Result};
 use args::OmniArgs;
@@ -38,10 +38,19 @@ async fn main() -> Result<()> {
         EntityType::Epicor(epicor) => match epicor.subcommand {
             EpicorSubcommand::Case(case) => match case.subcommand {
                 CaseSubcommand::CompleteTask(case) => {
-                    match send_complete_task(case.case_number, case.assign_to.as_str()).await {
+
+                    match send_complete_task(case.case_number.clone(), case.assign_to.as_str()).await {
                         Ok(_) => println!("Task Completed"),
                         Err(e) => println!("Error Completing Task: {}", e),
                     };
+
+                    // Check if the user provided a comment to add to the case
+                    if let Some(comment) = &case.comment {
+                        match add_case_comment(case.case_number.clone(), comment.as_str()).await {
+                            Ok(_) => (),
+                            Err(e) => println!("Error Adding Comment: {}", e),
+                        };
+                    }
                 }
                 CaseSubcommand::GetStatus(case) => {
                     get_case_status(case.case_number).await?;
@@ -55,6 +64,9 @@ async fn main() -> Result<()> {
                 CaseSubcommand::UpdateQuote(case) => {
                     update_case_quote(case.case_number, case.new_quantity).await?;
                 }
+                CaseSubcommand::GetLastComment(case) => {
+                    get_last_case_comment(case.case_number).await?;
+                }
             },
         },
         EntityType::Setup(setup_info) => {
@@ -66,6 +78,7 @@ async fn main() -> Result<()> {
                 setup_info.epicor_api_key.as_deref(),
                 setup_info.epicor_username.as_deref(),
                 setup_info.epicor_password.as_deref(),
+                setup_info.openai_api_key.as_deref(),
             )
             .await
             .expect("Setup Failed.");
